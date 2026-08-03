@@ -411,7 +411,14 @@ defmodule Kore.Codegen.Elixir do
     end) |> Enum.join("")
     "\"#{res}\""
   end
-  def expr(%AST.VarRef{name: n}, _), do: Prelude.to_snake_case(n)
+  def expr(%AST.VarRef{name: n}, _) do
+    first = String.at(n, 0)
+    if first >= "A" and first <= "Z" do
+      n
+    else
+      Prelude.to_snake_case(n)
+    end
+  end
   def expr(%AST.ConstructorCall{type_name: t, args: args}, type_index) do
     cond do
       t == "Ok" ->

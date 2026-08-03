@@ -162,8 +162,11 @@ defmodule Kore.Semantics.Scopes do
   defp resolve_expr(%AST.VarRef{name: name} = ref, scope, file, source_lines, errors) do
     case get_var(scope, name) do
       nil ->
-        # Could be a built-in function (println, listOf, etc.) — allow
-        if builtin?(name) do
+        # Could be a built-in function (println, listOf, etc.) or module reference (Plug.Cowboy, Kore.Main)
+        first_char = String.at(name, 0)
+        is_module_ref = (first_char >= "A" and first_char <= "Z") or String.contains?(name, ".")
+
+        if builtin?(name) or is_module_ref do
           {scope, errors}
         else
           err = make_error(file, ref.meta, "undefined variable '#{name}'", source_lines)

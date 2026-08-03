@@ -120,6 +120,7 @@ defmodule Kore.CLI do
     config = read_config()
     app_name = Keyword.get(config, :name)
     app_version = Keyword.get(config, :version, "0.1.0")
+    deps = Keyword.get(config, :deps, [])
 
     unless app_name do
       IO.puts("Error: :name is required in kore.exs.")
@@ -178,7 +179,7 @@ defmodule Kore.CLI do
       end
 
       defp deps do
-        []
+        #{inspect(deps)}
       end
     end
     """

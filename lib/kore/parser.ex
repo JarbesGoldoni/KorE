@@ -94,6 +94,7 @@ defmodule Kore.Parser do
   end
 
   defp parse_imports(state, acc) do
+    state = skip_newlines(state)
     if peek_type(state) == :import do
       {_, state} = consume(state)
       {_elixir_tok, state} = expect(state, :identifier) # expect 'elixir'
@@ -520,39 +521,53 @@ defmodule Kore.Parser do
         case type do
           :dot ->
             {_, state} = consume(state)
-            {{_, name, _, _}, state} = expect(state, :identifier)
-            
-            # Check if MethodCall
-            cond do
-              name == "copy" and peek_type(state) == :lparen ->
-                {_, state} = consume(state)
-                {updates, state} = parse_copy_updates(state, [])
-                {_, state} = expect(state, :rparen)
-                node = %AST.CopyCall{receiver: lhs, updates: updates, meta: meta}
-                parse_infix(state, node, min_bp)
+            next_type = peek_type(state)
+            if next_type in [:identifier, :type_identifier] do
+              {tok, state} = consume(state)
+              name = elem(tok, 1)
 
-              peek_type(state) == :lparen ->
-                {_, state} = consume(state)
-                {args, state} = parse_args(state)
-                {_, state} = expect(state, :rparen)
-                
-                {trailing, state} = if peek_type(state) == :lbrace do
-                  parse_lambda(state)
-                else
-                  {nil, state}
+              if next_type == :type_identifier do
+                ref_name = case lhs do
+                  %AST.VarRef{name: n} -> "#{n}.#{name}"
+                  _ -> name
                 end
-                
-                node = %AST.MethodCall{receiver: lhs, method: name, args: args, trailing_lambda: trailing, meta: meta}
+                node = %AST.VarRef{name: ref_name, meta: meta}
                 parse_infix(state, node, min_bp)
+              else
+                cond do
+                  name == "copy" and peek_type(state) == :lparen ->
+                    {_, state} = consume(state)
+                    {updates, state} = parse_copy_updates(state, [])
+                    {_, state} = expect(state, :rparen)
+                    node = %AST.CopyCall{receiver: lhs, updates: updates, meta: meta}
+                    parse_infix(state, node, min_bp)
 
-              peek_type(state) == :lbrace ->
-                {lambda, state} = parse_lambda(state)
-                node = %AST.MethodCall{receiver: lhs, method: name, args: [], trailing_lambda: lambda, meta: meta}
-                parse_infix(state, node, min_bp)
+                  peek_type(state) == :lparen ->
+                    {_, state} = consume(state)
+                    {args, state} = parse_args(state)
+                    {_, state} = expect(state, :rparen)
+                    
+                    {trailing, state} = if peek_type(state) == :lbrace do
+                      parse_lambda(state)
+                    else
+                      {nil, state}
+                    end
+                    
+                    node = %AST.MethodCall{receiver: lhs, method: name, args: args, trailing_lambda: trailing, meta: meta}
+                    parse_infix(state, node, min_bp)
 
-              true ->
-                node = %AST.FieldAccess{receiver: lhs, field: name, meta: meta}
-                parse_infix(state, node, min_bp)
+                  peek_type(state) == :lbrace ->
+                    {lambda, state} = parse_lambda(state)
+                    node = %AST.MethodCall{receiver: lhs, method: name, args: [], trailing_lambda: lambda, meta: meta}
+                    parse_infix(state, node, min_bp)
+
+                  true ->
+                    node = %AST.FieldAccess{receiver: lhs, field: name, meta: meta}
+                    parse_infix(state, node, min_bp)
+                end
+              end
+            else
+              error(state, "Expected identifier after dot, got #{next_type}", get_meta(state))
             end
 
           :safe_dot ->

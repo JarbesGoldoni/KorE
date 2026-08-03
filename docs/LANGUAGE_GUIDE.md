@@ -20,6 +20,7 @@
 12. [Actors (`actor`) & Concurrency (`spawn`, `receive`)](#12-actors-actor--concurrency-spawn-receive)
 13. [Interoperability (`import elixir...`)](#13-interoperability-import-elixir)
 14. [Complete Built-in Prelude Reference](#14-complete-built-in-prelude-reference)
+15. [Building Web Applications (Plug & Cowboy Interop)](#15-building-web-applications-plug--cowboy-interop)
 
 ---
 
@@ -72,10 +73,16 @@ kore <command> [options]
 Every KorE project contains a `kore.exs` configuration file at the root:
 
 ```elixir
-[name: "my_app", version: "0.1.0"]
+[
+  name: "my_app",
+  version: "0.1.0",
+  deps: [
+    {:plug_cowboy, "~> 2.6"}
+  ]
+]
 ```
 
-When running `kore build`, the compiler synthesizes a `_build/kore_gen/mix.exs` manifest using the application name and version.
+When running `kore build`, the compiler synthesizes a `_build/kore_gen/mix.exs` manifest using the application name, version, and dependencies list (`deps`). Hex dependencies specified in `deps` are automatically fetched during build.
 
 ---
 
@@ -381,11 +388,12 @@ fun workerProcess() {
 
 ## 13. Interoperability (`import elixir...`)
 
-Call standard Elixir modules or Hex packages directly in KorE:
+Call standard Elixir modules or Hex packages directly in KorE using `import elixir.<ModuleName>`:
 
 ```kotlin
 import elixir.IO
-import elixir.Ecto.Repo
+import elixir.Plug.Conn
+import elixir.Plug.Cowboy
 
 module InteropDemo {
     fun log(msg: String) {
@@ -393,6 +401,12 @@ module InteropDemo {
     }
 }
 ```
+
+### Key Interop Rules & Patterns
+
+1. **Multiple Imports**: Place one or more `import elixir...` statements at the top of your `.kore` file before the `module` declaration.
+2. **Dotted Module References**: Dotted module names (such as `Plug.Conn`, `Plug.Cowboy`, or KorE modules like `Kore.Main`) are preserved as UpperCamelCase aliases in generated Elixir.
+3. **Atoms & Option Lists**: Atoms are written as `:name` (e.g. `:port`, `:ok`, `:text`). Keyword option lists expected by Elixir libraries are constructed using lists of pairs: `listOf(Pair(:port, 4000))`, which transpile directly into Elixir keyword lists `[{:port, 4000}]`.
 
 ---
 
@@ -434,6 +448,60 @@ KorE automatically maps common standard methods to efficient Elixir functions at
 | `map.values` | `Map.values(map)` | Returns list of map values. |
 | `Ok(v)` | `{:ok, v}` | Success tagged tuple for `Result<T, E>`. |
 | `Error(e)` | `{:error, e}` | Error tagged tuple for `Result<T, E>`. |
+
+---
+
+## 15. Building Web Applications (Plug & Cowboy Interop)
+
+You can build HTTP servers in KorE by using Elixir's `Plug` ecosystem.
+
+### 1. Configure Dependencies (`kore.exs`)
+Add `:plug_cowboy` to the `deps` list in `kore.exs`:
+
+```elixir
+[
+  name: "mini_web",
+  version: "0.1.0",
+  deps: [
+    {:plug_cowboy, "~> 2.6"}
+  ]
+]
+```
+
+### 2. Implement the Plug & Server (`lib/main.kore`)
+Define `init` and `call` functions to satisfy the `Plug` contract, start the HTTP listener with `Plug.Cowboy.http(...)`, and keep the process alive with a `receive` loop:
+
+```kotlin
+import elixir.Plug.Conn
+import elixir.Plug.Cowboy
+
+module Main {
+    // 1. Plug contract callbacks
+    fun init(opts: Any): Any = opts
+
+    fun call(conn: Any, opts: Any): Any {
+        val c1 = Conn.putRespContentType(conn, "text/plain")
+        val c2 = Conn.sendResp(c1, 200, "Hello from KorE!")
+        return c2
+    }
+
+    // 2. Main entry point
+    fun main() {
+        println("Starting KorE web server on http://localhost:4000...")
+        // Starts Cowboy web server on port 4000 targeting Kore.Main module
+        Plug.Cowboy.http(Kore.Main, listOf(), listOf(Pair(:port, 4000)))
+
+        // Block main process so server keeps running
+        receive {
+            is String -> println(it)
+        }
+    }
+}
+```
+
+### 3. Build & Run
+- Run `kore build` to fetch dependencies and compile.
+- Run `kore run` to launch the HTTP web server on `http://localhost:4000`.
 
 ---
 
