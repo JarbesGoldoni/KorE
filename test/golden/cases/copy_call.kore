@@ -1,0 +1,4 @@
+module CopyCall {
+    data User(val name: String, val age: Int = 0)
+    fun updateAge(u: User, newAge: Int): User = u.copy(age = newAge)
+}

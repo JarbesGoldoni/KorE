@@ -1,0 +1,6 @@
+module Lambdas {
+    fun process(list: List<Int>): Int {
+        val doubled = list.map { it * 2 }
+        return doubled.fold(0) { acc, x -> acc + x }
+    }
+}

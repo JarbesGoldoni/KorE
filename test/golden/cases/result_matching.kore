@@ -1,0 +1,9 @@
+module ResultMatching {
+    fun parse(s: String): Result<Int, String> =
+        if (s == "42") Ok(42) else Error("bad input")
+
+    fun process(res: Result<Int, String>): String = when (res) {
+        is Ok(val v) -> "got $v"
+        is Error(val reason) -> "failed: $reason"
+    }
+}

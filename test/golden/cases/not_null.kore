@@ -1,0 +1,4 @@
+module NotNull {
+    data User(val name: String)
+    fun getForced(u: User?): String = u!!.name
+}

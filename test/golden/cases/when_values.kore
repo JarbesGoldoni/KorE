@@ -1,0 +1,7 @@
+module WhenValues {
+    fun describe(n: Int): String = when (n) {
+        0 -> "zero"
+        1, 2 -> "small"
+        else -> "big"
+    }
+}

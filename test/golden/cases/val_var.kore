@@ -1,0 +1,7 @@
+module ValVar {
+    fun test() {
+        val name: String = "diego"
+        var count = 0
+        count = count + 1
+    }
+}

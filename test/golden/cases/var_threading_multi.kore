@@ -1,0 +1,11 @@
+module VarThreadingMulti {
+    fun check(cond: Boolean): Int {
+        var x = 1
+        var y = 10
+        if (cond) {
+            x = 2
+            y = 20
+        }
+        return x + y
+    }
+}

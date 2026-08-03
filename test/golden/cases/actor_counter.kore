@@ -1,0 +1,7 @@
+module ActorCounter {
+    actor Counter(var count: Int = 0) {
+        fun increment() { count = count + 1 }
+        fun add(n: Int) { count = count + n }
+        fun get(): Int = count
+    }
+}

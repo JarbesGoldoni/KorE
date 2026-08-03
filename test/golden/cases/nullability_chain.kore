@@ -1,0 +1,4 @@
+module NullabilityChain {
+    data User(val name: String)
+    fun getName(u: User?): String? = u?.name
+}

@@ -1,0 +1,12 @@
+module SpawnReceive {
+    fun worker() {
+        receive {
+            is String -> println(it)
+        }
+    }
+
+    fun start() {
+        val pid = spawn { worker() }
+        pid.send("hello")
+    }
+}

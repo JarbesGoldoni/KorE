@@ -1,0 +1,7 @@
+import elixir.IO
+
+module ImportElixir {
+    fun log(msg: String) {
+        IO.puts(msg)
+    }
+}

@@ -1,0 +1,3 @@
+module NameMangling {
+    fun fetchAllData(userId: Int): String = "data_$userId"
+}

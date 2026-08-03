@@ -1,0 +1,11 @@
+module SealedExhaustive {
+    sealed Shape {
+        data Circle(val r: Double)
+        data Rect(val w: Double, val h: Double)
+    }
+
+    fun area(s: Shape): Double = when (s) {
+        is Circle(val r) -> 3.14 * r * r
+        is Rect(val w, val h) -> w * h
+    }
+}

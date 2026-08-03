@@ -1,0 +1,4 @@
+module Elvis {
+    data User(val name: String)
+    fun getNameOrDefault(u: User?): String = u?.name ?: "unknown"
+}

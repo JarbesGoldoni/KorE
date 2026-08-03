@@ -1,0 +1,7 @@
+module Collections {
+    fun build(): Pair<List<Int>, Map<String, Int>> {
+        val l = listOf(1, 2, 3)
+        val m = mapOf("a" to 1)
+        return Pair(l, m)
+    }
+}

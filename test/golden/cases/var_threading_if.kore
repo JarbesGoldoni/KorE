@@ -1,0 +1,9 @@
+module VarThreadingIf {
+    fun check(cond: Boolean): Int {
+        var x = 1
+        if (cond) {
+            x = 2
+        }
+        return x
+    }
+}

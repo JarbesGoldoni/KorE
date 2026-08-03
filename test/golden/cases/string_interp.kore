@@ -1,0 +1,3 @@
+module StringInterp {
+    fun format(a: Int, b: Int): String = "sum: ${a + b}"
+}

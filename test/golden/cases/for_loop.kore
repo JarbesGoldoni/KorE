@@ -1,0 +1,7 @@
+module ForLoop {
+    fun iterate(list: List<Int>) {
+        for (x in list) {
+            println(x)
+        }
+    }
+}
