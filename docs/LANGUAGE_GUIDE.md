@@ -6,24 +6,82 @@
 
 ## Table of Contents
 
-1. [Program Structure & Modules](#1-program-structure--modules)
-2. [Keywords Index](#2-keywords-index)
-3. [Variables & Immutability (`val` vs `var`)](#3-variables--immutability-val-vs-var)
-4. [Functions (`fun`) & Expressions](#4-functions-fun--expressions)
-5. [Data Records (`data`) & Sealed Types (`sealed`)](#5-data-records-data--sealed-types-sealed)
-6. [Pattern Matching (`when`, `is`, `else`)](#6-pattern-matching-when-is-else)
-7. [Control Flow (`if`, `else`, `for`, `in`, `return`)](#7-control-flow-if-else-for-in-return)
-8. [Null-Safety (`null`, `?`, `?.`, `?:`, `!!`)](#8-null-safety-null----elvis---not-null)
-9. [Collections, Pairs (`to`), and Literals](#9-collections-pairs-to-and-literals)
-10. [Actors (`actor`) & Concurrency (`spawn`, `receive`)](#10-actors-actor--concurrency-spawn-receive)
-11. [Interoperability (`import elixir...`)](#11-interoperability-import-elixir)
-12. [Built-in Prelude Reference](#12-built-in-prelude-reference)
+1. [CLI Toolchain & Commands](#1-cli-toolchain--commands)
+2. [Project Configuration (`kore.exs`)](#2-project-configuration-koreexs)
+3. [Program Structure & Modules](#3-program-structure--modules)
+4. [Keywords Index](#4-keywords-index)
+5. [Variables & Immutability (`val` vs `var`)](#5-variables--immutability-val-vs-var)
+6. [Functions (`fun`) & Expressions](#6-functions-fun--expressions)
+7. [Data Records (`data`) & Sealed Types (`sealed`)](#7-data-records-data--sealed-types-sealed)
+8. [Pattern Matching (`when`, `is`, `else`)](#8-pattern-matching-when-is-else)
+9. [Control Flow (`if`, `else`, `for`, `in`, `return`)](#9-control-flow-if-else-for-in-return)
+10. [Null-Safety (`null`, `?`, `?.`, `?:`, `!!`)](#10-null-safety-null----elvis---not-null)
+11. [Collections, Pairs (`to`), and Literals](#11-collections-pairs-to-and-literals)
+12. [Actors (`actor`) & Concurrency (`spawn`, `receive`)](#12-actors-actor--concurrency-spawn-receive)
+13. [Interoperability (`import elixir...`)](#13-interoperability-import-elixir)
+14. [Complete Built-in Prelude Reference](#14-complete-built-in-prelude-reference)
 
 ---
 
-## 1. Program Structure & Modules
+## 1. CLI Toolchain & Commands
 
-Every `.kore` file belongs to a module defined by the `module` keyword. File names must match the snake_case representation of the module name (e.g., `user_service.kore` must contain `module UserService`).
+The `kore` CLI is the primary developer interface for scaffolding, building, checking, testing, running, and formatting KorE applications.
+
+```bash
+kore <command> [options]
+```
+
+### Available Commands
+
+| Command | Usage | Description |
+|---|---|---|
+| `new` | `kore new <name>` | Scaffolds a new KorE project in directory `<name>`. |
+| `build` | `kore build` | Transpiles `.kore` files to Elixir (`_build/kore_gen/`) and compiles to `.beam`. |
+| `run` | `kore run [module]` | Builds and executes `Kore.Main.main()` or `<module>.main()`. |
+| `clean` | `kore clean` | Removes the `_build/` directory and compiled artifacts. |
+| `check` | `kore check` | Performs fast syntax and semantic validation without code generation. |
+| `test` | `kore test` | Compiles and executes project tests inside the BEAM runtime. |
+| `fmt`, `format` | `kore fmt [files] [--check]` | Formats `.kore` source files in-place (`--check` verifies formatting). |
+| `version` | `kore version` | Displays the compiler toolchain version. |
+| `help` | `kore help [command]` | Displays detailed help for any command. |
+
+#### Command Details
+
+- **`kore clean`**: Cleans all build artifacts by deleting `_build/`.
+  ```bash
+  $ kore clean
+  Cleaned build artifacts (_build/).
+  ```
+
+- **`kore check`**: Runs all 6 semantic passes (scopes, closure safety, SSA var-threading, exhaustiveness, minimal type checking) without invoking `mix compile`. Ideal for fast feedback and IDE integration.
+  ```bash
+  $ kore check
+  Check passed: 0 errors found in 2 file(s).
+  ```
+
+- **`kore fmt` / `kore format`**: Standard code formatter. Formats code in-place or checks compliance in CI.
+  ```bash
+  $ kore fmt                  # Format all lib/ and test/ files in-place
+  $ kore format --check       # Check formatting status without modifying files
+  ```
+
+---
+
+## 2. Project Configuration (`kore.exs`)
+
+Every KorE project contains a `kore.exs` configuration file at the root:
+
+```elixir
+[name: "my_app", version: "0.1.0"]
+```
+
+When running `kore build`, the compiler synthesizes a `_build/kore_gen/mix.exs` manifest using the application name and version.
+
+---
+
+## 3. Program Structure & Modules
+
+Every `.kore` file belongs to a module defined by the `module` keyword. Module names use `UpperCamelCase`. Generated modules are automatically namespaced under `Kore.` in Elixir (e.g. `module UserService` → `Kore.UserService`).
 
 ```kotlin
 import elixir.IO
@@ -35,18 +93,18 @@ module UserService {
 
 ---
 
-## 2. Keywords Index
+## 4. Keywords Index
 
 KorE features 21 reserved keywords:
 
 | Keyword | Description & Usage |
 |---|---|
 | `module` | Declares a module namespace. |
-| `import` | Imports external Elixir or KorE modules. |
+| `import` | Imports external Elixir modules (`import elixir.X.Y`). |
 | `fun` | Declares a named function or method. |
 | `val` | Declares an immutable local variable, record property, or parameter. |
-| `var` | Declares a rebindable (mutable) local variable, record property, or actor field. |
-| `data` | Declares an immutable data record class (Elixir struct). |
+| `var` | Declares a rebindable local variable or actor state field. |
+| `data` | Declares an immutable struct record (`data User(...)`). |
 | `sealed` | Declares a closed algebraic sum type (tagged union). |
 | `when` | Expression for pattern matching against values or types. |
 | `is` | Type test or variant pattern matcher inside `when` / `receive`. |
@@ -61,11 +119,11 @@ KorE features 21 reserved keywords:
 | `true` | Boolean truth literal. |
 | `false` | Boolean false literal. |
 | `null` | Absence of value for nullable types (`T?`). |
-| `to` | Pair constructor operator (`a to b`). |
+| `to` | Pair constructor binary operator (`a to b`). |
 
 ---
 
-## 3. Variables & Immutability (`val` vs `var`)
+## 5. Variables & Immutability (`val` vs `var`)
 
 ### `val` (Immutable Binding)
 Bindings declared with `val` cannot be reassigned.
@@ -102,7 +160,7 @@ fun calculateDiscount(items: Int, vip: Boolean): Double {
 
 ---
 
-## 4. Functions (`fun`) & Expressions
+## 6. Functions (`fun`) & Expressions
 
 Functions can be declared with an expression body (`=`) or a block body (`{ ... }`).
 
@@ -121,14 +179,12 @@ module MathUtils {
     }
 
     // Default arguments
-    fun power(base: Int, exponent: Int = 2): Int {
-        // ...
-    }
+    fun scale(x: Int, factor: Int = 2): Int = x * factor
 }
 ```
 
 ### Lambdas & Higher-Order Functions
-Lambdas are defined inside braces `{ params -> body }`. If a lambda has a single argument and no parameter list is specified, it is implicitly named `it`:
+Lambdas are defined inside braces `{ params -> body }` or `{ body }`. If a lambda has a single argument and no parameter list is specified, it is implicitly named `it`:
 
 ```kotlin
 val numbers = listOf(1, 2, 3, 4, 5)
@@ -142,7 +198,7 @@ val sum = numbers.fold(0) { acc, x -> acc + x }
 
 ---
 
-## 5. Data Records (`data`) & Sealed Types (`sealed`)
+## 7. Data Records (`data`) & Sealed Types (`sealed`)
 
 ### `data` (Struct Records)
 Data classes define immutable data containers with named fields and automatic `copy(...)` helper synthesis.
@@ -166,13 +222,11 @@ module Geometry {
     sealed Shape {
         data Circle(val radius: Double)
         data Rect(val width: Double, val height: Double)
-        data Point
     }
 
     fun area(s: Shape): Double = when (s) {
         is Circle(val r) -> 3.14159 * r * r
         is Rect(val w, val h) -> w * h
-        is Point -> 0.0
     }
 }
 ```
@@ -182,7 +236,7 @@ module Geometry {
 
 ---
 
-## 6. Pattern Matching (`when`, `is`, `else`)
+## 8. Pattern Matching (`when`, `is`, `else`)
 
 The `when` expression provides rich pattern matching capabilities:
 
@@ -191,8 +245,7 @@ The `when` expression provides rich pattern matching capabilities:
 fun describeNumber(n: Int): String = when (n) {
     0 -> "zero"
     1, 2 -> "small"
-    in 3..10 -> "medium"
-    else -> "large"
+    else -> "big"
 }
 ```
 
@@ -206,7 +259,7 @@ fun processResult(res: Result<String, Int>): String = when (res) {
 
 ---
 
-## 7. Control Flow (`if`, `else`, `for`, `in`, `return`)
+## 9. Control Flow (`if`, `else`, `for`, `in`, `return`)
 
 ### `if` Expression
 In KorE, `if` is an expression that yields a value:
@@ -233,7 +286,7 @@ fun printRange() {
 
 ---
 
-## 8. Null-Safety (`null`, `?`, `?.`, `?:`, `!!`)
+## 10. Null-Safety (`null`, `?`, `?.`, `?:`, `!!`)
 
 KorE explicitly separates non-nullable types (`String`) from nullable types (`String?`).
 
@@ -251,13 +304,13 @@ fun getBioLength(u: User?): Int {
     // 3. Forced unwrap (!!): throws runtime error if value is null
     val forcedBio: String = u!!.profile!!.bio
 
-    return safeBio.length()
+    return safeBio.length
 }
 ```
 
 ---
 
-## 9. Collections, Pairs (`to`), and Literals
+## 11. Collections, Pairs (`to`), and Literals
 
 ### Lists & Maps
 ```kotlin
@@ -280,7 +333,7 @@ val label = "Item: $item costs $${price * 1.10}"
 
 ---
 
-## 10. Actors (`actor`) & Concurrency (`spawn`, `receive`)
+## 12. Actors (`actor`) & Concurrency (`spawn`, `receive`)
 
 ### OTP Actors (`actor`)
 Actors encapsulate state inside isolated BEAM processes (`GenServer`).
@@ -302,10 +355,10 @@ module CounterApp {
     }
 
     fun main() {
-        val pid = Counter.start(10)
-        Counter.increment(pid)
-        Counter.add(pid, 5)
-        println("Current count: ${Counter.get(pid)}") // 16
+        val c = Counter.start(10)
+        c.increment()
+        c.add(5)
+        println("Current count: ${c.get()}") // 16
     }
 }
 ```
@@ -326,13 +379,13 @@ fun workerProcess() {
 
 ---
 
-## 11. Interoperability (`import elixir...`)
+## 13. Interoperability (`import elixir...`)
 
 Call standard Elixir modules or Hex packages directly in KorE:
 
 ```kotlin
 import elixir.IO
-import elixir.String as ExString
+import elixir.Ecto.Repo
 
 module InteropDemo {
     fun log(msg: String) {
@@ -343,25 +396,44 @@ module InteropDemo {
 
 ---
 
-## 12. Built-in Prelude Reference
+## 14. Complete Built-in Prelude Reference
 
-KorE automatically imports common stdlib methods for `List`, `Map`, `String`, and `Result`:
+KorE automatically maps common standard methods to efficient Elixir functions at compile time:
 
-| KorE Expression | Generated Elixir Translation |
-|---|---|
-| `list.map { ... }` | `Enum.map(list, fn ... end)` |
-| `list.filter { ... }` | `Enum.filter(list, fn ... end)` |
-| `list.fold(init) { acc, x -> ... }` | `Enum.reduce(list, init, fn x, acc -> ... end)` |
-| `list.length()` | `length(list)` |
-| `str.uppercase()` | `String.upcase(str)` |
-| `str.lowercase()` | `String.downcase(str)` |
-| `str.trim()` | `String.trim(str)` |
-| `str.length()` | `String.length(str)` |
-| `map.get(key)` | `Map.get(map, key)` |
-| `listOf(a, b)` | `[a, b]` |
-| `mapOf(k to v)` | `%{k => v}` |
-| `Ok(v)` | `{:ok, v}` |
-| `Error(e)` | `{:error, e}` |
+| KorE Call / Property | Transpiled Elixir Target | Description |
+|---|---|---|
+| `println(x)` | `IO.puts(x)` | Writes line to stdout. |
+| `print(x)` | `IO.write(x)` | Writes string to stdout without newline. |
+| `readLine()` | `IO.gets("") \|> String.trim_trailing()` | Reads line from stdin. |
+| `listOf(a, b)` | `[a, b]` | Constructs list literal. |
+| `mapOf(k to v)` | `%{k => v}` | Constructs map literal. |
+| `Pair(a, b)` / `a to b` | `{a, b}` | Constructs 2-tuple pair. |
+| `list.map { }` | `Enum.map(list, fn)` | Maps elements over list. |
+| `list.filter { }` | `Enum.filter(list, fn)` | Filters elements by predicate. |
+| `list.forEach { }` | `Enum.each(list, fn)` | Executes block for each element. |
+| `list.fold(init) { acc, x -> }` | `Enum.reduce(list, init, fn x, acc -> end)` | Reduces collection with accumulator. |
+| `list.size` | `length(list)` | List element count property. |
+| `list.first()` | `List.first(list)` | Returns first element or `nil`. |
+| `list.last()` | `List.last(list)` | Returns last element or `nil`. |
+| `list.isEmpty()` | `Enum.empty?(list)` | Returns `true` if list is empty. |
+| `list.contains(x)` / `x in list` | `x in list` | Membership test. |
+| `list.reversed()` | `Enum.reverse(list)` | Reverses list elements. |
+| `list.sorted()` | `Enum.sort(list)` | Sorts list elements. |
+| `list.joinToString(sep)` | `Enum.join(list, sep)` | Joins elements into single string. |
+| `s.length` | `String.length(s)` | String length property. |
+| `s.uppercase()` | `String.upcase(s)` | Converts string to uppercase. |
+| `s.lowercase()` | `String.downcase(s)` | Converts string to lowercase. |
+| `s.trim()` | `String.trim(s)` | Strips leading/trailing whitespace. |
+| `s.split(sep)` | `String.split(s, sep)` | Splits string into list by separator. |
+| `s.startsWith(p)` | `String.starts_with?(s, p)` | Returns `true` if string starts with prefix. |
+| `s.toInt()` | `String.to_integer(s)` | Parses string as integer. |
+| `x.toString()` | `to_string(x)` | Converts value to string representation. |
+| `map.get(k)` / `map[k]` | `Map.get(map, k)` | Map lookup by key. |
+| `map.put(k, v)` | `Map.put(map, k, v)` | Returns updated map with key-value. |
+| `map.keys` | `Map.keys(map)` | Returns list of map keys. |
+| `map.values` | `Map.values(map)` | Returns list of map values. |
+| `Ok(v)` | `{:ok, v}` | Success tagged tuple for `Result<T, E>`. |
+| `Error(e)` | `{:error, e}` | Error tagged tuple for `Result<T, E>`. |
 
 ---
 
