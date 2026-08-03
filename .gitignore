@@ -1,1 +1,7 @@
-/.idea/
+/_build/
+/deps/
+/kore
+*.beam
+erl_crash.dump
+.fetch
+.idea/
