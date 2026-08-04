@@ -88,6 +88,9 @@ defmodule Kore.Prelude do
       "listOf" -> {:ok, :list_literal}
       "mapOf" -> {:ok, :map_literal}
       "tupleOf" -> {:ok, :tuple_literal}
+      "rem" -> {:ok, {nil, "rem"}}
+      "div" -> {:ok, {nil, "div"}}
+      "trunc" -> {:ok, {nil, "trunc"}}
       _ -> :none
     end
   end

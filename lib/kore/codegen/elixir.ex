@@ -307,7 +307,7 @@ defmodule Kore.Codegen.Elixir do
             "case Plug.Conn.read_body(#{hd(args_strs)}) do {:ok, body, _} -> {:ok, body}; {:more, body, _} -> {:ok, body}; {:error, err} -> {:error, err} end"
           :none ->
             m_snake = Prelude.to_snake_case(meth)
-            is_external = String.starts_with?(mod_name, ["Plug", "Jason", "IO", "Enum", "String", "List", "Map", "Process", "GenServer", "System", "File", "Task", "Agent", "Node", "Cowboy"])
+            is_external = String.starts_with?(mod_name, ["Plug", "Jason", "IO", "Enum", "String", "List", "Map", "Process", "GenServer", "System", "File", "Task", "Agent", "Node", "Cowboy", "Kernel", "Integer", "DateTime", "NaiveDateTime", "Application"])
             prefix = if is_external, do: mod_name, else: "Kore.#{mod_name}"
             "#{prefix}.#{m_snake}(#{Enum.join(args_strs, ", ")})"
         end
