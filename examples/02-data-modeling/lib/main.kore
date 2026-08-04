@@ -1,0 +1,28 @@
+module Main {
+    data User(val name: String, val age: Int = 0)
+
+    sealed Status {
+        data Active(val since: String)
+        data Inactive(val reason: String)
+    }
+
+    fun describe(s: Status): String = when (s) {
+        is Active(val since) -> "Active since $since"
+        is Inactive(val reason) -> "Inactive: $reason"
+    }
+
+    fun main() {
+        val user = User("Diego", 30)
+        val older = user.copy(age = 31)
+        println("${ user.name } is ${ user.age }, next year ${ older.age }")
+
+        val status = Active("2024")
+        println(describe(status))
+
+        val result = Ok("success")
+        when (result) {
+            is Ok(val v) -> println("Got: $v")
+            is Error(val e) -> println("Err: $e")
+        }
+    }
+}

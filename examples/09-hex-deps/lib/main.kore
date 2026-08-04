@@ -1,0 +1,12 @@
+import elixir.Jason
+
+module Main {
+    fun main() {
+        val data = mapOf("name" to "KorE", "version" to "0.1.0")
+        val json = Jason.encode(data)
+        when (json) {
+            is Ok(val str) -> println("JSON: $str")
+            is Error(val err) -> println("Error: $err")
+        }
+    }
+}

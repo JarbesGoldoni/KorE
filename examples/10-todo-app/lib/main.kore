@@ -1,0 +1,52 @@
+module Main {
+    data Todo(val id: Int, val text: String, val done: Boolean = false)
+
+    sealed Command {
+        data Add(val text: String)
+        data Toggle(val id: Int)
+        data List()
+    }
+
+    actor TodoStore(var todos: List<Todo> = listOf(), var nextId: Int = 1) {
+        fun add(text: String) {
+            todos = todos.plus(Todo(nextId, text))
+            nextId += 1
+        }
+
+        fun toggle(id: Int) {
+            todos = todos.map { todo ->
+                if (todo.id == id) todo.copy(done = !todo.done)
+                else todo
+            }
+        }
+
+        fun getAll(): List<Todo> = todos
+    }
+
+    fun printTodos(store: TodoStore) {
+        val todos = store.getAll()
+        if (todos.isEmpty()) {
+            println("  (no todos)")
+        } else {
+            todos.forEach { todo ->
+                val mark = if (todo.done) "x" else " "
+                println("  [$mark] ${todo.id}. ${todo.text}")
+            }
+        }
+    }
+
+    fun main() {
+        val store = TodoStore.start()
+
+        store.add("Learn KorE")
+        store.add("Build something cool")
+        store.add("Deploy to production")
+
+        println("=== All Todos ===")
+        printTodos(store)
+
+        store.toggle(1)
+        println("\n=== After completing #1 ===")
+        printTodos(store)
+    }
+}

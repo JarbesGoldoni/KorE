@@ -1,0 +1,16 @@
+import elixir.System
+import elixir.Enum
+
+module Main {
+    fun main() {
+        val timestamp = System.systemTime()
+        println("System time: $timestamp")
+
+        val list = listOf(3, 1, 4, 1, 5)
+        val shuffled = Enum.shuffle(list)
+        println("Shuffled: $shuffled")
+
+        val unique = Enum.uniq(list)
+        println("Unique: $unique")
+    }
+}

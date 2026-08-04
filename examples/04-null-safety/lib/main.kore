@@ -1,0 +1,17 @@
+module Main {
+    data Profile(val bio: String?)
+    data User(val name: String, val profile: Profile?)
+
+    fun main() {
+        val user1 = User("Diego", Profile("Loves KorE"))
+        val user2 = User("Ghost", null)
+
+        val bio1 = user1.profile?.bio ?: "No bio"
+        val bio2 = user2.profile?.bio ?: "No bio"
+        println("${ user1.name }: $bio1")
+        println("${ user2.name }: $bio2")
+
+        val forced = user1.profile!!.bio
+        println("Forced: $forced")
+    }
+}

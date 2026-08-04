@@ -1,0 +1,19 @@
+module Main {
+    fun main() {
+        val numbers = listOf(1, 2, 3, 4, 5)
+        val doubled = numbers.map { it * 2 }
+        val evens = doubled.filter { it % 2 == 0 }
+        val sum = evens.fold(0) { acc, x -> acc + x }
+        println("Sum of doubled evens: $sum")
+
+        val extended = numbers.plus(6)
+        println("Extended size: ${extended.size}")
+
+        val scores = mapOf("Alice" to 95, "Bob" to 87)
+        val aliceScore = scores.get("Alice") ?: 0
+        println("Alice: $aliceScore")
+
+        val updated = scores.put("Charlie", 91)
+        println("Has Charlie: ${updated.containsKey("Charlie")}")
+    }
+}

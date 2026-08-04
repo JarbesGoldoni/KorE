@@ -1,0 +1,23 @@
+module Main {
+    fun factorial(n: Int, acc: Int = 1): Int =
+        if (n <= 1) acc
+        else factorial(n - 1, acc * n)
+
+    fun fibonacci(n: Int): Int =
+        if (n <= 1) n
+        else fibonacci(n - 1) + fibonacci(n - 2)
+
+    fun countdown(n: Int) {
+        if (n > 0) {
+            println(n.toString())
+            countdown(n - 1)
+        }
+    }
+
+    fun main() {
+        println("5! = ${factorial(5)}")
+        println("fib(10) = ${fibonacci(10)}")
+        println("Countdown:")
+        countdown(5)
+    }
+}

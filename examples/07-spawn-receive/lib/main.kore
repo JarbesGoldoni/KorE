@@ -1,0 +1,18 @@
+module Main {
+    fun worker() {
+        receive {
+            is Pair(val from, val msg) -> {
+                println("Worker got: $msg")
+                from.send("echo: $msg")
+            }
+        }
+    }
+
+    fun main() {
+        val pid = spawn { worker() }
+        pid.send(Pair(self(), "hello"))
+        receive {
+            is String -> println("Main got: $it")
+        }
+    }
+}

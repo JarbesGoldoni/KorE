@@ -1,0 +1,7 @@
+module Main {
+    fun main() {
+        val name = "KorE"
+        println("Hello, $name!")
+        println("2 + 2 = ${2 + 2}")
+    }
+}

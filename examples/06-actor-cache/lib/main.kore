@@ -1,0 +1,28 @@
+module Main {
+    actor Cache(var store: Map<String, String> = mapOf()) {
+        fun put(key: String, value: String) {
+            store = store.put(key, value)
+        }
+
+        fun get(key: String): String? = store.get(key)
+
+        fun remove(key: String) {
+            store = store.remove(key)
+        }
+
+        fun size(): Int = store.mapSize
+    }
+
+    fun main() {
+        val cache = Cache.start()
+        cache.put("lang", "KorE")
+        cache.put("target", "BEAM")
+
+        val lang = cache.get("lang") ?: "unknown"
+        println("lang = $lang")
+        println("size = ${cache.size()}")
+
+        cache.remove("target")
+        println("after remove, size = ${cache.size()}")
+    }
+}
