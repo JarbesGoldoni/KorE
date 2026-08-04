@@ -26,8 +26,22 @@ defmodule Kore do
     with {:ok, tokens} <- Lexer.tokenize(source, file),
          {:ok, ast} <- Parser.parse(tokens, file, source_lines),
          {:ok, ast} <- run_semantic_passes(ast, file, source_lines),
-         {:ok, elixir_code} <- Codegen.Elixir.generate(ast, file) do
+         {:ok, elixir_code} <- Codegen.Elixir.generate(ast, file),
+         :ok <- validate_elixir(elixir_code, file) do
       {:ok, elixir_code}
+    end
+  end
+
+  defp validate_elixir(elixir_code, file) do
+    case Code.string_to_quoted(elixir_code) do
+      {:ok, _} ->
+        :ok
+
+      {:error, {meta, error_msg, token}} ->
+        line = Keyword.get(meta, :line, 1)
+        msg = "Generated Elixir syntax error: #{to_string(error_msg)}#{to_string(token)} (Elixir line #{line})"
+        err = Kore.Errors.new(file, 1, 1, msg, nil)
+        {:error, [err]}
     end
   end
 

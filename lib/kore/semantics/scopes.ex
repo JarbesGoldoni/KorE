@@ -388,7 +388,7 @@ defmodule Kore.Semantics.Scopes do
   defp get_var_local(%{vars: vars}, name), do: Map.get(vars, name)
 
   defp builtin?(name) do
-    name in ~w(println print readLine listOf mapOf self toString)
+    name in ~w(println print readLine listOf mapOf tupleOf self toString)
   end
 
   defp make_error(file, meta, message, source_lines) do

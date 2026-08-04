@@ -87,6 +87,20 @@ defmodule Kore.Prelude do
       "self" -> {:ok, {nil, "self"}}
       "listOf" -> {:ok, :list_literal}
       "mapOf" -> {:ok, :map_literal}
+      "tupleOf" -> {:ok, :tuple_literal}
+      _ -> :none
+    end
+  end
+
+  @doc """
+  Look up a static method call on a module (e.g. Conn.getMethod).
+  Returns `{:ok, transform}` or `:none`.
+  """
+  def lookup_static_method(mod_name, method_name, arity \\ nil) do
+    case {mod_name, method_name, arity} do
+      {"Conn", "getMethod", 1} -> {:ok, {:struct_field, "method"}}
+      {"Conn", "getPathInfo", 1} -> {:ok, {:struct_field, "path_info"}}
+      {"Conn", "readBody", 1} -> {:ok, :read_body}
       _ -> :none
     end
   end

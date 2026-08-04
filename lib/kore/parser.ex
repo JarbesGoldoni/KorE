@@ -58,6 +58,17 @@ defmodule Kore.Parser do
     {tok, %{state | current: state.current + 1}}
   end
 
+  
+  defp expect_identifier(state) do
+    {type, _value, line, col} = peek(state)
+    if type in [:identifier, :data, :in] do
+      {tok, state} = consume(state)
+      {{:identifier, to_string(elem(tok, 1)), elem(tok, 2), elem(tok, 3)}, state}
+    else
+      error(state, "Expected identifier, got #{token_display(type)}", %{line: line, col: col})
+    end
+  end
+
   defp expect(state, expected_type) do
     {type, _value, line, col} = peek(state)
     if type == expected_type do
@@ -209,7 +220,7 @@ defmodule Kore.Parser do
   defp parse_fun_decl(state) do
     meta = get_meta(state)
     {_, state} = expect(state, :fun)
-    {{_, name, _, _}, state} = expect(state, :identifier)
+    {{_, name, _, _}, state} = expect_identifier(state)
     {_, state} = expect(state, :lparen)
     {params, state} = parse_params(state)
     {_, state} = expect(state, :rparen)
@@ -233,6 +244,7 @@ defmodule Kore.Parser do
   end
 
   defp parse_params(state) do
+    state = skip_newlines(state)
     if peek_type(state) == :rparen do
       {[], state}
     else
@@ -241,8 +253,9 @@ defmodule Kore.Parser do
   end
 
   defp parse_param_list(state, acc) do
+    state = skip_newlines(state)
     meta = get_meta(state)
-    {{_, name, _, _}, state} = expect(state, :identifier)
+    {{_, name, _, _}, state} = expect_identifier(state)
     {_, state} = expect(state, :colon)
     {type, state} = parse_type(state)
     
@@ -268,7 +281,7 @@ defmodule Kore.Parser do
     meta = get_meta(state)
     {tok, state} = consume(state)
     mutable = elem(tok, 0) == :var
-    {{_, name, _, _}, state} = expect(state, :identifier)
+    {{_, name, _, _}, state} = expect_identifier(state)
 
     {has_colon, state} = match(state, :colon)
     {type, state} = if has_colon do
@@ -289,11 +302,13 @@ defmodule Kore.Parser do
     {{_, name, _, _}, state} = expect(state, :type_identifier)
     {_, state} = expect(state, :lparen)
     {fields, state} = parse_data_fields(state)
+    state = skip_newlines(state)
     {_, state} = expect(state, :rparen)
     {%AST.DataDecl{name: name, fields: fields, meta: meta}, state}
   end
 
   defp parse_data_fields(state) do
+    state = skip_newlines(state)
     if peek_type(state) == :rparen do
       {[], state}
     else
@@ -302,9 +317,10 @@ defmodule Kore.Parser do
   end
 
   defp parse_data_field_list(state, acc) do
+    state = skip_newlines(state)
     meta = get_meta(state)
     {_, state} = expect(state, :val)
-    {{_, name, _, _}, state} = expect(state, :identifier)
+    {{_, name, _, _}, state} = expect_identifier(state)
     {_, state} = expect(state, :colon)
     {type, state} = parse_type(state)
     
@@ -353,6 +369,7 @@ defmodule Kore.Parser do
     {{_, name, _, _}, state} = expect(state, :type_identifier)
     {_, state} = expect(state, :lparen)
     {fields, state} = parse_actor_fields(state)
+    state = skip_newlines(state)
     {_, state} = expect(state, :rparen)
     state = skip_newlines(state)
     {_, state} = expect(state, :lbrace)
@@ -364,6 +381,7 @@ defmodule Kore.Parser do
   end
 
   defp parse_actor_fields(state) do
+    state = skip_newlines(state)
     if peek_type(state) == :rparen do
       {[], state}
     else
@@ -372,6 +390,7 @@ defmodule Kore.Parser do
   end
 
   defp parse_actor_field_list(state, acc) do
+    state = skip_newlines(state)
     meta = get_meta(state)
     tok = peek_type(state)
     {mutable, state} = if tok == :var do
@@ -382,7 +401,7 @@ defmodule Kore.Parser do
       {false, state}
     end
 
-    {{_, name, _, _}, state} = expect(state, :identifier)
+    {{_, name, _, _}, state} = expect_identifier(state)
     {_, state} = expect(state, :colon)
     {type, state} = parse_type(state)
     
@@ -452,7 +471,7 @@ defmodule Kore.Parser do
           {expr, state} = parse_expr(state, 0)
           {%AST.Return{value: expr, meta: meta}, state}
         end
-      :identifier ->
+      t when t in [:identifier, :data, :in] ->
         # Could be assignment, compound assignment, or expr
         next_tok = if state.current + 1 < length(state.tokens) do
           Enum.at(state.tokens, state.current + 1)
@@ -463,13 +482,13 @@ defmodule Kore.Parser do
         cond do
           next_type == :equal ->
             meta = get_meta(state)
-            {{_, name, _, _}, state} = expect(state, :identifier)
+            {{_, name, _, _}, state} = expect_identifier(state)
             {_, state} = expect(state, :equal)
             {value, state} = parse_expr(state, 0)
             {%AST.Assign{name: name, value: value, meta: meta}, state}
           next_type in [:plus_eq, :minus_eq] ->
             meta = get_meta(state)
-            {{_, name, _, _}, state} = expect(state, :identifier)
+            {{_, name, _, _}, state} = expect_identifier(state)
             {_, state} = consume(state)
             {rhs, state} = parse_expr(state, 0)
             op = if next_type == :plus_eq, do: :plus, else: :minus
@@ -519,9 +538,9 @@ defmodule Kore.Parser do
         {_, state} = consume(state)
         {%AST.Literal{type: :atom, value: value, meta: meta}, state}
       
-      :identifier ->
-        {_, state} = consume(state)
-        {%AST.VarRef{name: value, meta: meta}, state}
+      t when t in [:identifier, :data, :in] ->
+        {tok, state} = consume(state)
+        {%AST.VarRef{name: to_string(elem(tok, 1)), meta: meta}, state}
       
       :type_identifier ->
         {_, state} = consume(state)
@@ -634,7 +653,7 @@ defmodule Kore.Parser do
 
           :safe_dot ->
             {_, state} = consume(state)
-            {{_, name, _, _}, state} = expect(state, :identifier)
+            {{_, name, _, _}, state} = expect_identifier(state)
             node = %AST.SafeAccess{receiver: lhs, field: name, meta: meta}
             parse_infix(state, node, min_bp)
 
@@ -729,7 +748,7 @@ defmodule Kore.Parser do
     meta = get_meta(state)
     {_, state} = expect(state, :for)
     {_, state} = expect(state, :lparen)
-    {{_, var_name, _, _}, state} = expect(state, :identifier)
+    {{_, var_name, _, _}, state} = expect_identifier(state)
     {_, state} = expect(state, :in)
     {iterable, state} = parse_expr(state, 0)
     {_, state} = expect(state, :rparen)
@@ -767,7 +786,7 @@ defmodule Kore.Parser do
     if peek_type(state) == :rparen do
       {Enum.reverse(acc), state}
     else
-      {{_, field_name, _, _}, state} = expect(state, :identifier)
+      {{_, field_name, _, _}, state} = expect_identifier(state)
       {_, state} = expect(state, :equal)
       {val, state} = parse_expr(state, 0)
       acc = [{field_name, val} | acc]
@@ -908,7 +927,7 @@ defmodule Kore.Parser do
 
   defp parse_bind_list(state, acc) do
     {_, state} = expect(state, :val)
-    {{_, name, _, _}, state} = expect(state, :identifier)
+    {{_, name, _, _}, state} = expect_identifier(state)
     acc = [name | acc]
     {has_comma, state} = match(state, :comma)
     if has_comma do
@@ -947,13 +966,15 @@ defmodule Kore.Parser do
       {:arrow, _, _, _} -> true
       {:rbrace, _, _, _} -> false
       {:identifier, _, _, _} -> check_for_arrow(tokens, current + 1)
+      {:data, _, _, _} -> check_for_arrow(tokens, current + 1)
+      {:in, _, _, _} -> check_for_arrow(tokens, current + 1)
       {:comma, _, _, _} -> check_for_arrow(tokens, current + 1)
       _ -> false
     end
   end
 
   defp parse_lambda_params(state, acc) do
-    {{_, name, _, _}, state} = expect(state, :identifier)
+    {{_, name, _, _}, state} = expect_identifier(state)
     acc = [name | acc]
     {has_comma, state} = match(state, :comma)
     if has_comma do
@@ -963,16 +984,28 @@ defmodule Kore.Parser do
     end
   end
 
-  defp parse_type(state) do
-    meta = get_meta(state)
-    type_tok = peek_type(state)
-
-    {{_, name, _, _}, state} =
+  defp parse_dotted_type_name(state, acc) do
+    {type_tok, _, _, _} = peek(state)
+    {{_, name, _, _}, state} = 
       if type_tok in [:type_identifier, :identifier] do
         consume(state)
       else
         expect(state, :type_identifier)
       end
+      
+    path = [name | acc]
+    {has_dot, state} = match(state, :dot)
+    if has_dot do
+      parse_dotted_type_name(state, path)
+    else
+      {Enum.reverse(path), state}
+    end
+  end
+
+  defp parse_type(state) do
+    meta = get_meta(state)
+    {path, state} = parse_dotted_type_name(state, [])
+    name = Enum.join(path, ".")
     
     {has_less, state} = match(state, :less)
     {params, state} = if has_less do

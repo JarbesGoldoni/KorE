@@ -110,7 +110,7 @@ defmodule Kore.Codegen.Elixir do
     other_mods = Enum.map(others, fn
       %AST.DataDecl{} = d -> gen_data(d, module_name, type_index)
       %AST.SealedDecl{} = s -> gen_sealed(s, module_name, type_index)
-      %AST.ActorDecl{} = a -> Actor.generate(a, module_name)
+      %AST.ActorDecl{} = a -> Actor.generate(a, module_name, type_index)
     end) |> Enum.join("\n\n")
     
     main_mod = """
@@ -280,6 +280,7 @@ defmodule Kore.Codegen.Elixir do
       {:ok, :read_line} -> "IO.gets(\"\") |> String.trim_trailing()"
       {:ok, :list_literal} -> "[#{Enum.join(args_strs, ", ")}]"
       {:ok, :map_literal} -> "%{#{Enum.join(args_strs, ", ")}}"
+      {:ok, :tuple_literal} -> "{#{Enum.join(args_strs, ", ")}}"
       :none -> 
         fn_s = Prelude.to_snake_case(func_name)
         if tl do
@@ -298,8 +299,18 @@ defmodule Kore.Codegen.Elixir do
       %AST.VarRef{name: <<char, _::binary>> = mod_name} when char >= ?A and char <= ?Z ->
         args_strs = Enum.map(args, &expr(&1, type_index))
         args_strs = if tl, do: args_strs ++ [expr(tl, type_index)], else: args_strs
-        m_snake = Prelude.to_snake_case(meth)
-        "#{mod_name}.#{m_snake}(#{Enum.join(args_strs, ", ")})"
+        
+        case Prelude.lookup_static_method(mod_name, meth, length(args_strs)) do
+          {:ok, {:struct_field, field}} ->
+            "#{hd(args_strs)}.#{field}"
+          {:ok, :read_body} ->
+            "case Plug.Conn.read_body(#{hd(args_strs)}) do {:ok, body, _} -> {:ok, body}; {:more, body, _} -> {:ok, body}; {:error, err} -> {:error, err} end"
+          :none ->
+            m_snake = Prelude.to_snake_case(meth)
+            is_external = String.starts_with?(mod_name, ["Plug", "Jason", "IO", "Enum", "String", "List", "Map", "Process", "GenServer", "System", "File", "Task", "Agent", "Node", "Cowboy"])
+            prefix = if is_external, do: mod_name, else: "Kore.#{mod_name}"
+            "#{prefix}.#{m_snake}(#{Enum.join(args_strs, ", ")})"
+        end
 
       _ ->
         recv_str = expr(recv, type_index)
@@ -329,7 +340,12 @@ defmodule Kore.Codegen.Elixir do
           {:ok, {nil, "++", :list_concat}} ->
             "#{recv_str} ++ #{hd(args_strs)}"
           :none ->
-            "#{meth}(#{recv_str}#{if length(args_strs)>0, do: ", " <> Enum.join(args_strs, ", ")})"
+            m_snake = Prelude.to_snake_case(meth)
+            if length(args_strs) == 0 do
+              "GenServer.call(#{recv_str}, :#{m_snake})"
+            else
+              "GenServer.call(#{recv_str}, {:#{m_snake}, #{Enum.join(args_strs, ", ")}})"
+            end
         end
     end
   end
@@ -407,6 +423,14 @@ defmodule Kore.Codegen.Elixir do
   }
   @unary_op_strings %{not: "!", minus: "-"}
 
+  def expr(%AST.BinOp{op: :plus, left: l, right: r}, type_index) do
+    if is_string_expr?(l) or is_string_expr?(r) do
+      "#{expr(l, type_index)} <> #{expr(r, type_index)}"
+    else
+      "#{expr(l, type_index)} + #{expr(r, type_index)}"
+    end
+  end
+
   def expr(%AST.BinOp{op: op, left: l, right: r}, type_index) do
     op_str = Map.get(@op_strings, op, to_string(op))
     "#{expr(l, type_index)} #{op_str} #{expr(r, type_index)}"
@@ -415,7 +439,7 @@ defmodule Kore.Codegen.Elixir do
     op_str = Map.get(@unary_op_strings, op, to_string(op))
     "#{op_str}#{expr(o, type_index)}"
   end
-  def expr(%AST.Literal{type: :string, value: v}, _), do: "\"#{v}\""
+  def expr(%AST.Literal{type: :string, value: v}, _), do: inspect(v)
   def expr(%AST.Literal{type: :null}, _), do: "nil"
   def expr(%AST.Literal{type: :atom, value: v}, _), do: ":#{v}"
   def expr(%AST.Literal{value: v}, _), do: "#{v}"
@@ -550,9 +574,14 @@ defmodule Kore.Codegen.Elixir do
       _ -> "x when x in [#{Enum.map(v, &expr(&1, type_index)) |> Enum.join(", ")}]"
     end
   end
-  defp gen_pattern(%AST.PatternElse{}, _type_index), do: "_"
+  defp gen_pattern(%AST.PatternElse{}, _type_index), do: "it"
 
   defp indent(str) do
     str |> String.split("\n") |> Enum.map(&("  " <> &1)) |> Enum.join("\n")
   end
+
+  defp is_string_expr?(%AST.Literal{type: :string}), do: true
+  defp is_string_expr?(%AST.StringInterp{}), do: true
+  defp is_string_expr?(%AST.BinOp{op: :plus, left: l, right: r}), do: is_string_expr?(l) or is_string_expr?(r)
+  defp is_string_expr?(_), do: false
 end

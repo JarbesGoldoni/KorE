@@ -27,6 +27,8 @@ defmodule Kore.CLI.Scaffold do
       path -> to_string(path)
     end
 
+    app_name = Path.basename(name)
+
     config_template = Path.join(priv_dir, "templates/kore.exs")
     config_content =
       if File.exists?(config_template) do
@@ -34,7 +36,7 @@ defmodule Kore.CLI.Scaffold do
       else
         @default_kore_exs
       end
-      |> String.replace("<name>", name)
+      |> String.replace("<name>", app_name)
 
     File.write!("#{name}/kore.exs", config_content)
 

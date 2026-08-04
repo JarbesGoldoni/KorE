@@ -10,7 +10,7 @@ defmodule Kore.Codegen.Actor do
 
   alias Kore.Prelude
 
-  def generate(actor_decl, parent_module \\ nil) do
+  def generate(actor_decl, parent_module \\ nil, type_index \\ %{}) do
     name = actor_decl.name
     elixir_name = if parent_module, do: "#{parent_module}.#{name}", else: "Kore.#{name}"
     
@@ -22,7 +22,7 @@ defmodule Kore.Codegen.Actor do
     start_params = Enum.map(actor_decl.fields, fn f ->
       p = Prelude.to_snake_case(f.name)
       if f.default do
-        "#{p} \\\\ #{Kore.Codegen.Elixir.expr(f.default)}"
+        "#{p} \\\\ #{Kore.Codegen.Elixir.expr(f.default, type_index)}"
       else
         p
       end
@@ -67,9 +67,9 @@ defmodule Kore.Codegen.Actor do
       end) |> Enum.join("\n")
 
       body = if is_map(m.body) and m.body.__struct__ == Kore.AST.Block do
-        Enum.map(m.body.statements, fn s -> "    " <> Kore.Codegen.Elixir.expr(s) end) |> Enum.join("\n")
+        Enum.map(m.body.statements, fn s -> "    " <> Kore.Codegen.Elixir.expr(s, type_index) end) |> Enum.join("\n")
       else
-        "    " <> Kore.Codegen.Elixir.expr(m.body)
+        "    " <> Kore.Codegen.Elixir.expr(m.body, type_index)
       end
       
       # var fields writeback
