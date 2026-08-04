@@ -1,21 +1,25 @@
 defmodule Kore.CLI do
   @moduledoc """
   CLI escript entry point for KorE.
+
+  Dispatches commands to specialized sub-modules:
+  - `Kore.CLI.Scaffold` — project scaffolding (`new`)
+  - `Kore.CLI.Builder` — compilation and execution (`build`, `run`, `test`)
   """
 
   alias Kore.Formatter
 
   def main(args \\ []) do
     case args do
-      ["new", name] -> new_project(name)
-      ["build"] -> build()
+      ["new", name] -> Kore.CLI.Scaffold.run(name)
+      ["build"] -> Kore.CLI.Builder.build()
       ["clean"] -> clean()
       ["check"] -> check()
-      ["test"] -> test()
+      ["test"] -> Kore.CLI.Builder.test()
       ["fmt" | rest] -> format_cli(rest)
       ["format" | rest] -> format_cli(rest)
-      ["run"] -> run("Kore.Main")
-      ["run", module] -> run(module)
+      ["run"] -> Kore.CLI.Builder.run("Kore.Main")
+      ["run", module] -> Kore.CLI.Builder.run(module)
       ["version"] -> IO.puts("KorE #{Kore.version()}")
       ["help" | rest] -> help(rest)
       _ -> print_usage()
@@ -44,162 +48,7 @@ defmodule Kore.CLI do
     end
   end
 
-  # ── Templates ──────────────────────────────────────────────────────
-
-  @default_kore_exs ~s([name: "<name>", version: "0.1.0"])
-  @default_main_kore """
-  module Main {
-      fun main() {
-          println("Hello, KorE!")
-      }
-  }
-  """
-  @default_gitignore "_build/\n"
-
-  # ── Command Implementations ────────────────────────────────────────
-
-  defp new_project(name) do
-    if File.exists?(name) do
-      IO.puts("Error: Directory '#{name}' already exists.")
-      System.halt(1)
-    end
-
-    File.mkdir_p!("#{name}/lib")
-    File.mkdir_p!("#{name}/test")
-
-    priv_dir = case :code.priv_dir(:kore) do
-      {:error, :bad_name} -> Path.join(File.cwd!(), "priv")
-      path -> to_string(path)
-    end
-
-    config_template = Path.join(priv_dir, "templates/kore.exs")
-    config_content =
-      if File.exists?(config_template) do
-        File.read!(config_template)
-      else
-        @default_kore_exs
-      end
-      |> String.replace("<name>", name)
-
-    File.write!("#{name}/kore.exs", config_content)
-
-    main_template = Path.join(priv_dir, "templates/main.kore")
-    main_content =
-      if File.exists?(main_template) do
-        File.read!(main_template)
-      else
-        @default_main_kore
-      end
-
-    File.write!("#{name}/lib/main.kore", main_content)
-
-    gitignore_template = Path.join(priv_dir, "templates/gitignore")
-    gitignore_content =
-      if File.exists?(gitignore_template) do
-        File.read!(gitignore_template)
-      else
-        @default_gitignore
-      end
-
-    File.write!("#{name}/.gitignore", gitignore_content)
-
-    IO.puts("Created KorE project '#{name}'.")
-  end
-
-  defp read_config do
-    if File.exists?("kore.exs") do
-      {config, _} = Code.eval_file("kore.exs")
-      config
-    else
-      IO.puts("Error: kore.exs not found in current directory.")
-      System.halt(1)
-    end
-  end
-
-  defp build do
-    config = read_config()
-    app_name = Keyword.get(config, :name)
-    app_version = Keyword.get(config, :version, "0.1.0")
-    deps = Keyword.get(config, :deps, [])
-
-    unless app_name do
-      IO.puts("Error: :name is required in kore.exs.")
-      System.halt(1)
-    end
-
-    kore_files = Path.wildcard("lib/**/*.kore") ++ Path.wildcard("test/**/*.kore")
-    
-    File.mkdir_p!("_build/kore_gen/lib")
-
-    has_errors = Enum.reduce(kore_files, false, fn file, acc ->
-      IO.puts("Compiling #{file}...")
-      case Kore.compile_file(file) do
-        {:ok, elixir_code} ->
-          rel_dir = Path.dirname(file)
-          dest_dir = Path.join(["_build/kore_gen", rel_dir])
-          File.mkdir_p!(dest_dir)
-          base_name = Path.basename(file, ".kore")
-          dest_path = Path.join(dest_dir, "#{base_name}.ex")
-          File.write!(dest_path, elixir_code)
-          acc
-
-        {:error, errors} ->
-          if Code.ensure_loaded?(Kore.Errors) && function_exported?(Kore.Errors, :format_all, 1) do
-            IO.puts(Kore.Errors.format_all(errors))
-          else
-            IO.inspect(errors)
-          end
-          true
-      end
-    end)
-
-    if has_errors do
-      IO.puts("Compilation failed.")
-      System.halt(1)
-    end
-
-    mix_exs = """
-    defmodule #{Macro.camelize(app_name)}.MixProject do
-      use Mix.Project
-
-      def project do
-        [
-          app: :#{app_name},
-          version: "#{app_version}",
-          elixir: "~> 1.14",
-          start_permanent: Mix.env() == :prod,
-          deps: deps()
-        ]
-      end
-
-      def application do
-        [
-          extra_applications: [:logger]
-        ]
-      end
-
-      defp deps do
-        #{inspect(deps)}
-      end
-    end
-    """
-    File.write!("_build/kore_gen/mix.exs", mix_exs)
-
-    IO.puts("Running mix compile in _build/kore_gen...")
-    {output, status} = System.cmd("mix", ["deps.get"], cd: "_build/kore_gen", stderr_to_stdout: true)
-    IO.write(output)
-    if status != 0 do
-      IO.puts("mix deps.get failed")
-      System.halt(status)
-    end
-
-    {output, status} = System.cmd("mix", ["compile"], cd: "_build/kore_gen", stderr_to_stdout: true)
-    IO.write(output)
-    if status != 0 do
-      IO.puts("mix compile failed")
-      System.halt(status)
-    end
-  end
+  # ── Command Implementations (kept local — small utilities) ─────────
 
   defp clean do
     if File.exists?("_build") do
@@ -211,7 +60,7 @@ defmodule Kore.CLI do
   end
 
   defp check do
-    _config = read_config()
+    _config = Kore.CLI.Builder.read_config()
     kore_files = Path.wildcard("lib/**/*.kore") ++ Path.wildcard("test/**/*.kore")
 
     if kore_files == [] do
@@ -235,16 +84,6 @@ defmodule Kore.CLI do
         IO.puts("Check failed: #{total_errors} error(s) found.")
         System.halt(1)
       end
-    end
-  end
-
-  defp test do
-    build()
-    IO.puts("Running tests in _build/kore_gen...")
-    {output, status} = System.cmd("mix", ["test"], cd: "_build/kore_gen", stderr_to_stdout: true)
-    IO.write(output)
-    if status != 0 do
-      System.halt(status)
     end
   end
 
@@ -301,29 +140,6 @@ defmodule Kore.CLI do
           IO.puts("All #{length(files)} file(s) already formatted.")
         end
       end
-    end
-  end
-
-  defp run(module_or_func) do
-    build()
-
-    target =
-      cond do
-        String.ends_with?(module_or_func, ")") ->
-          module_or_func
-
-        Regex.match?(~r/\.[a-z_][a-zA-Z0-9_]*$/, module_or_func) ->
-          "#{module_or_func}()"
-
-        true ->
-          "#{module_or_func}.main()"
-      end
-
-    IO.puts("Running #{target}...")
-    {output, status} = System.cmd("mix", ["run", "-e", target], cd: "_build/kore_gen", stderr_to_stdout: true)
-    IO.write(output)
-    if status != 0 do
-      System.halt(status)
     end
   end
 

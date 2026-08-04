@@ -1,4 +1,13 @@
 defmodule Kore.Codegen.Actor do
+  @moduledoc """
+  Generates Elixir GenServer code from KorE `actor` declarations.
+
+  Depends on `Kore.Codegen.Elixir.expr/1` for sub-expression rendering.
+  This creates a compile-time reference cycle with `Codegen.Elixir` which
+  calls `Actor.generate/2` — acceptable in Elixir (no runtime cycle) but
+  noted for future extraction if the codegen layer grows.
+  """
+
   alias Kore.Prelude
 
   def generate(actor_decl, parent_module \\ nil) do

@@ -1,6 +1,13 @@
 defmodule Kore.Lexer do
   @moduledoc """
-  Hand-written scanner for KorE.
+  Hand-written scanner for KorE source code.
+
+  Produces a flat list of `{type, value, line, col}` tuples from UTF-8 source.
+  Handles nested string interpolation (`$name` and `${expr}`), all operators
+  (including two-char `?.`, `!!`, `+=`, `-=`), atom literals, numeric separators,
+  and significant newlines as statement terminators.
+
+  Returns `{:ok, tokens}` or `{:error, [Kore.Errors.t()]}`.
   """
 
   @keywords ~w(module fun val var data sealed when is if else return import actor spawn receive true false null in for to)
@@ -22,6 +29,7 @@ defmodule Kore.Lexer do
     "," => :comma, ":" => :colon, ";" => :semicolon, "?" => :question
   }
 
+  @doc "Tokenize a KorE source string into a token list."
   @spec tokenize(String.t(), String.t()) :: {:ok, [tuple()]} | {:error, [Kore.Errors.t()]}
   def tokenize(input, file \\ "nofile") do
     lines = String.split(input, ~r/\r\n|\n|\r/) |> List.to_tuple()

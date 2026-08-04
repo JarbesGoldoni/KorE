@@ -1,4 +1,14 @@
 defmodule Kore.Codegen.Specs do
+  @moduledoc """
+  Generates Elixir `@spec` annotations and guard clauses from KorE type information.
+
+  Converts KorE `TypeRef` and `FunctionType` AST nodes into Elixir typespec strings
+  (e.g. `integer()`, `String.t()`, `{:ok, t} | {:error, e}`) and corresponding
+  guard expressions (e.g. `is_integer(x)`) for use in function heads.
+
+  Used by `Kore.Codegen.Elixir` when emitting typed function definitions.
+  """
+
   alias Kore.AST.{TypeRef, FunctionType}
 
   def type_to_spec(type, type_index \\ %{})

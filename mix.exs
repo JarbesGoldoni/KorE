@@ -24,6 +24,6 @@ defmodule Kore.MixProject do
   end
 
   defp escript do
-    [main_module: Kore.CLI]
+    [main_module: Kore.CLI, name: "kore"]
   end
 end
