@@ -444,7 +444,7 @@ defmodule Kore.Semantics.Scopes do
     line = Map.get(meta, :line, 1)
     col = Map.get(meta, :col, 1)
     source_line = Enum.at(source_lines, line - 1)
-    [Errors.new(file, line, col, "early return not supported in v0.1", source_line)]
+    [Errors.new(file, line, col, "early return not supported; restructure using if/when expressions or move the return to the last position in the function body", source_line)]
   end
 
   defp find_returns(%AST.Block{statements: stmts}, file, source_lines) do

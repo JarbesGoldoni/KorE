@@ -1,4 +1,15 @@
 defmodule Kore.Codegen.Elixir do
+  @moduledoc """
+  Main Elixir source code generator for KorE.
+
+  Transforms a verified KorE AST into formatted, idiomatic Elixir source code.
+  Handles all expression types, module/function generation, data structs,
+  sealed types, and delegates actor generation to `Kore.Codegen.Actor`.
+
+  The public `expr/2` function is also used by `Codegen.Actor` for rendering
+  sub-expressions within GenServer handlers.
+  """
+
   alias Kore.AST
   alias Kore.Prelude
   alias Kore.Codegen.{Specs, Actor}
@@ -313,6 +324,10 @@ defmodule Kore.Codegen.Elixir do
             "#{hd(args_strs)} in #{recv_str}"
           {:ok, {nil, "send", :send_rewrite}} ->
             "send(#{recv_str}, #{hd(args_strs)})"
+          {:ok, {nil, "++", :list_append}} ->
+            "#{recv_str} ++ [#{hd(args_strs)}]"
+          {:ok, {nil, "++", :list_concat}} ->
+            "#{recv_str} ++ #{hd(args_strs)}"
           :none ->
             "#{meth}(#{recv_str}#{if length(args_strs)>0, do: ", " <> Enum.join(args_strs, ", ")})"
         end
@@ -388,7 +403,7 @@ defmodule Kore.Codegen.Elixir do
     plus: "+", minus: "-", star: "*", slash: "/", percent: "%",
     eq_eq: "==", not_eq: "!=", less: "<", greater: ">",
     less_eq: "<=", greater_eq: ">=", and_and: "&&", or_or: "||",
-    elvis: "?:", range: "..", equal: "=", plus_eq: "+=", minus_eq: "-="
+    range: ".."
   }
   @unary_op_strings %{not: "!", minus: "-"}
 

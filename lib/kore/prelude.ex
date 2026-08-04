@@ -34,6 +34,16 @@ defmodule Kore.Prelude do
       {"sorted", _} -> {:ok, {"Enum", "sort", :receiver_first}}
       {"joinToString", _} -> {:ok, {"Enum", "join", :receiver_first}}
       {"size", nil} -> {:ok, {nil, "length", {:receiver_first, :property}}}
+      {"plus", _} -> {:ok, {nil, "++", :list_append}}
+      {"plusAll", _} -> {:ok, {nil, "++", :list_concat}}
+      {"take", _} -> {:ok, {"Enum", "take", :receiver_first}}
+      {"drop", _} -> {:ok, {"Enum", "drop", :receiver_first}}
+      {"sum", _} -> {:ok, {"Enum", "sum", :receiver_first}}
+      {"count", _} -> {:ok, {"Enum", "count", :receiver_first}}
+      {"any", _} -> {:ok, {"Enum", "any?", :receiver_first}}
+      {"all", _} -> {:ok, {"Enum", "all?", :receiver_first}}
+      {"flatMap", _} -> {:ok, {"Enum", "flat_map", :receiver_first}}
+      {"distinct", _} -> {:ok, {"Enum", "uniq", :receiver_first}}
 
       # ── String methods ──────────────────────────────────────────
       {"length", nil} -> {:ok, {"String", "length", {:receiver_first, :property}}}
@@ -42,14 +52,21 @@ defmodule Kore.Prelude do
       {"trim", _} -> {:ok, {"String", "trim", :receiver_first}}
       {"split", _} -> {:ok, {"String", "split", :receiver_first}}
       {"startsWith", _} -> {:ok, {"String", "starts_with?", :receiver_first}}
+      {"endsWith", _} -> {:ok, {"String", "ends_with?", :receiver_first}}
+      {"includes", _} -> {:ok, {"String", "contains?", :receiver_first}}
+      {"replace", _} -> {:ok, {"String", "replace", :receiver_first}}
       {"toInt", _} -> {:ok, {"String", "to_integer", :receiver_first}}
+      {"toDouble", _} -> {:ok, {"String", "to_float", :receiver_first}}
       {"toString", _} -> {:ok, {nil, "to_string", :receiver_first}}
 
       # ── Map methods ────────────────────────────────────────────
       {"get", _} -> {:ok, {"Map", "get", :receiver_first}}
       {"put", _} -> {:ok, {"Map", "put", :receiver_first}}
+      {"remove", _} -> {:ok, {"Map", "delete", :receiver_first}}
+      {"containsKey", _} -> {:ok, {"Map", "has_key?", :receiver_first}}
       {"keys", nil} -> {:ok, {"Map", "keys", {:receiver_first, :property}}}
       {"values", nil} -> {:ok, {"Map", "values", {:receiver_first, :property}}}
+      {"mapSize", nil} -> {:ok, {nil, "map_size", {:receiver_first, :property}}}
 
       # ── Process methods ────────────────────────────────────────
       {"send", _} -> {:ok, {nil, "send", :send_rewrite}}

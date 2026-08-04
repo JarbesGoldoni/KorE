@@ -1,14 +1,27 @@
 defmodule Kore.Parser do
+  @moduledoc """
+  Recursive descent parser with Pratt expression parsing for KorE.
+
+  Transforms a token stream from `Kore.Lexer` into a KorE AST (`Kore.AST.File`).
+  Handles all language constructs: modules, functions, data records, sealed types,
+  actors, control flow, pattern matching, lambdas, and string interpolation.
+
+  Returns `{:ok, AST.File.t()}` or `{:error, [Kore.Errors.t()]}`.
+  """
+
   alias Kore.AST
+  alias Kore.Errors
 
   @type token :: {atom(), term(), integer(), integer()}
   @type parse_result :: {:ok, AST.File.t()} | {:error, [{String.t(), integer(), integer()}]}
 
-  def parse(tokens, _file, _source_lines) do
+  def parse(tokens, file, source_lines) do
     state = %{
       tokens: tokens,
       errors: [],
-      current: 0
+      current: 0,
+      file: file,
+      source_lines: source_lines
     }
 
     try do
@@ -20,7 +33,9 @@ defmodule Kore.Parser do
       end
     catch
       :error, %{message: msg, meta: meta} ->
-        {:error, [{msg, meta.line, meta.col} | state.errors]}
+        src_line = Enum.at(source_lines, max(meta.line - 1, 0))
+        error = Errors.new(file, meta.line, meta.col, msg, src_line)
+        {:error, [error | state.errors]}
     end
   end
 
@@ -48,7 +63,7 @@ defmodule Kore.Parser do
     if type == expected_type do
       consume(state)
     else
-      error(state, "Expected #{expected_type}, got #{type}", %{line: line, col: col})
+      error(state, "Expected #{token_display(expected_type)}, got #{token_display(type)}", %{line: line, col: col})
     end
   end
 
@@ -63,6 +78,43 @@ defmodule Kore.Parser do
 
   defp error(_state, msg, meta) do
     throw(%{message: msg, meta: meta})
+  end
+
+  defp token_display(type) do
+    case type do
+      :lparen -> "'('"
+      :rparen -> "')'"
+      :lbrace -> "'{'"
+      :rbrace -> "'}'"
+      :comma -> "','"
+      :colon -> "':'"
+      :semicolon -> "';'"
+      :dot -> "'.'"
+      :equal -> "'='"
+      :arrow -> "'->'"
+      :plus -> "'+'"
+      :minus -> "'-'"
+      :star -> "'*'"
+      :slash -> "'/'"
+      :percent -> "'%'"
+      :less -> "'<'"
+      :greater -> "'>'"
+      :safe_dot -> "'?.'"
+      :not_null -> "'!!'"
+      :elvis -> "'?:'"
+      :range -> "'..'"
+      :plus_eq -> "'+='"
+      :minus_eq -> "'-='"
+      :identifier -> "identifier"
+      :type_identifier -> "type name"
+      :integer -> "integer literal"
+      :int -> "integer literal"
+      :double -> "float literal"
+      :string -> "string literal"
+      :newline -> "newline"
+      :eof -> "end of file"
+      other -> "'#{other}'"
+    end
   end
 
   defp get_meta(state) do
@@ -148,7 +200,9 @@ defmodule Kore.Parser do
       :data -> parse_data_decl(state)
       :sealed -> parse_sealed_decl(state)
       :actor -> parse_actor_decl(state)
-      _ -> error(state, "Unexpected declaration", get_meta(state))
+      _ ->
+        {type, _, _, _} = peek(state)
+        error(state, "Unexpected #{token_display(type)} at module level; expected 'fun', 'val', 'var', 'data', 'sealed', or 'actor'", get_meta(state))
     end
   end
 
@@ -399,22 +453,30 @@ defmodule Kore.Parser do
           {%AST.Return{value: expr, meta: meta}, state}
         end
       :identifier ->
-        # Could be assignment or expr
-        # Look ahead one
-        # Because we only have tokens list, we can peek ahead
+        # Could be assignment, compound assignment, or expr
         next_tok = if state.current + 1 < length(state.tokens) do
           Enum.at(state.tokens, state.current + 1)
         else
           nil
         end
-        if next_tok && elem(next_tok, 0) == :equal do
-          meta = get_meta(state)
-          {{_, name, _, _}, state} = expect(state, :identifier)
-          {_, state} = expect(state, :equal)
-          {value, state} = parse_expr(state, 0)
-          {%AST.Assign{name: name, value: value, meta: meta}, state}
-        else
-          parse_expr(state, 0)
+        next_type = if next_tok, do: elem(next_tok, 0), else: nil
+        cond do
+          next_type == :equal ->
+            meta = get_meta(state)
+            {{_, name, _, _}, state} = expect(state, :identifier)
+            {_, state} = expect(state, :equal)
+            {value, state} = parse_expr(state, 0)
+            {%AST.Assign{name: name, value: value, meta: meta}, state}
+          next_type in [:plus_eq, :minus_eq] ->
+            meta = get_meta(state)
+            {{_, name, _, _}, state} = expect(state, :identifier)
+            {_, state} = consume(state)
+            {rhs, state} = parse_expr(state, 0)
+            op = if next_type == :plus_eq, do: :plus, else: :minus
+            value = %AST.BinOp{op: op, left: %AST.VarRef{name: name, meta: meta}, right: rhs, meta: meta}
+            {%AST.Assign{name: name, value: value, meta: meta}, state}
+          true ->
+            parse_expr(state, 0)
         end
       _ -> parse_expr(state, 0)
     end
@@ -506,7 +568,7 @@ defmodule Kore.Parser do
         {_, state} = expect(state, :rparen)
         {expr, state}
       
-      _ -> error(state, "Unexpected token in expression: #{type}", meta)
+      _ -> error(state, "Cannot start an expression with #{token_display(type)}; expected a value, identifier, '(', 'if', 'when', 'for', or unary operator", meta)
     end
   end
 
@@ -567,7 +629,7 @@ defmodule Kore.Parser do
                 end
               end
             else
-              error(state, "Expected identifier after dot, got #{next_type}", get_meta(state))
+              error(state, "Expected field or method name after '.', got #{token_display(next_type)}", get_meta(state))
             end
 
           :safe_dot ->

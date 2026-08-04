@@ -100,6 +100,6 @@ defmodule Kore.ErrorTest do
     }
     """
     assert {:error, [err]} = Kore.compile(source, file: "early_return_error.kore")
-    assert err.message =~ "early return not supported in v0.1"
+    assert err.message =~ "early return not supported"
   end
 end
