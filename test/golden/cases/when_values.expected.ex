@@ -10,7 +10,7 @@ defmodule Kore.WhenValues do
         "zero"
       x when x in [1, 2] ->
         "small"
-      _ ->
+      it ->
         "big"
     end
   end
