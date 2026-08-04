@@ -40,6 +40,8 @@ import  actor  spawn  receive  true  false  null  in  for  to
 .  -  !  *  /  %  +  <  >  =  (  )  {  }  ,  :  ;  ?
 ```
 
+*Note:* In string concatenation contexts (`str1 + str2`), the KorE compiler automatically translates `+` to Elixir's `<>` string concatenation operator.
+
 **Precedence (high to low):**
 
 1. `. ?. !!` (postfix/access)
@@ -72,6 +74,7 @@ param         = name , ":" , type , [ "=" , expr ] ;
 dataDecl      = "data" , TypeName , "(" , dataFields , ")" ;
 dataFields    = dataField , { "," , dataField } ;
 dataField     = "val" , name , ":" , type , [ "=" , expr ] ;
+(* Note: Field lists in data and actor declarations support multi-line formatting *)
 
 sealedDecl    = "sealed" , TypeName , "{" , { dataDecl } , "}" ;
 
@@ -97,13 +100,16 @@ whenCond      = "is" , TypeName , [ "(" , bindList , ")" ]
               | expr , { "," , expr }
               | "else" ;
 bindList      = ( "val" , name ) , { "," , "val" , name } ;
+(* Note: 'data' and 'in' can be used as bound variable names inside bindList and params *)
 forExpr       = "for" , "(" , name , "in" , expr , ")" , block ;
 lambda        = "{" , [ lambdaParams , "->" ] , { statement } , "}" ;
 lambdaParams  = name , { "," , name } ;
 receiveExpr   = "receive" , "{" , { whenBranch } , "}" ;
+(* Note: receive else arms bind the received message to 'it' *)
 spawnExpr     = "spawn" , block ;
 
-type          = TypeName , [ "<" , type , { "," , type } , ">" ] , [ "?" ] ;
+type          = dottedName , [ "<" , type , { "," , type } , ">" ] , [ "?" ] ;
+(* Note: Type annotations support dotted types like ChatStore.Store *)
 
 (* Call/access syntax — parsed via Pratt precedence *)
 callExpr      = primary , { "." , name , [ "(" , argList , ")" ] , [ lambda ] }
@@ -116,6 +122,23 @@ copyArgs      = name , "=" , expr , { "," , name , "=" , expr } ;
 argList       = expr , { "," , expr } ;
 ```
 
+### 1.4 Literals
+
+| Literal | Syntax | Example |
+|---------|--------|---------|
+| Int | `[0-9][0-9_]*` | `42`, `1_000_000` |
+| Double | `[0-9][0-9_]*\.[0-9][0-9_]*` | `3.14`, `1_000.50` |
+| String | `"..."` with `$name` / `${expr}` interpolation | `"Hello, $name"` |
+| Boolean | `true` / `false` | |
+| Null | `null` | |
+| Atom | `:[a-zA-Z_][a-zA-Z0-9_]*` | `:ok`, `:error` |
+
+**String Escape Sequences:**
+- `\n` — Linefeed (0x0A)
+- `\t` — Horizontal Tab (0x09)
+- `\r` — Carriage Return (0x0D)
+- `\"` — Double quote (properly preserved and escaped in generated Elixir output)
+- `\\` — Literal backslash
 ### 1.4 Literals
 
 | Literal | Syntax | Example |
@@ -175,6 +198,15 @@ All built-in methods and functions with their full signatures.
 | `self(): Pid` | `self()` | Current process PID |
 | `listOf(varargs: T): List<T>` | `[a, b, ...]` | Literal list construction |
 | `mapOf(varargs: Pair<K,V>): Map<K,V>` | `%{k => v, ...}` | Literal map construction |
+| `tupleOf(varargs: Any): Tuple` | `{a, b, c, ...}` | Flat BEAM tuple construction |
+
+### 3.2 Plug / Conn Helpers
+
+| KorE Signature | Elixir Output | Notes |
+|----------------|---------------|-------|
+| `Conn.getMethod(conn: Conn): String` | `conn.method` | Accesses `%Plug.Conn{}` method struct field |
+| `Conn.getPathInfo(conn: Conn): List<String>` | `conn.path_info` | Accesses `%Plug.Conn{}` path_info struct field |
+| `Conn.readBody(conn: Conn): Result<String, Any>` | `case Plug.Conn.read_body(conn)...` | Normalizes Plug 3-tuple to `{:ok, body}` or `{:error, reason}` |
 
 ### 3.2 List/Enum Methods
 

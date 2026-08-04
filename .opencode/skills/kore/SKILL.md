@@ -118,6 +118,10 @@ fun safeDivide(a: Int, b: Int): Result<Int, String> =
 | KorE | Elixir |
 |------|--------|
 | `println(x)` | `IO.puts(x)` |
+| `tupleOf(a, b, c)` | `{a, b, c}` (flat BEAM tuple) |
+| `Conn.getMethod(conn)` | `conn.method` |
+| `Conn.getPathInfo(conn)` | `conn.path_info` |
+| `Conn.readBody(conn)` | `case Plug.Conn.read_body(conn)...` |
 | `list.map { }` | `Enum.map(list, fn)` |
 | `list.fold(init) { acc, x -> }` | `Enum.reduce(list, init, fn x, acc -> end)` |
 | `map.get(k)` | `Map.get(map, k)` |
@@ -129,6 +133,7 @@ fun safeDivide(a: Int, b: Int): Result<Int, String> =
 
 ## References
 
+- Agent guide: `AGENTS.md`
 - Full language reference: `docs/REFERENCE.md`
 - Translation table: `docs/ELIXIR_TO_KORE.md`
 - Examples: `examples/` directory
